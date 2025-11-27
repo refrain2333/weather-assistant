@@ -1,7 +1,6 @@
 """工具模块 - 包含所有可用的工具函数"""
-import os
 import requests
-from tavily import TavilyClientdis
+from config import SEARXNG_URL
 
 def get_weather(city: str) -> str:
     """通过调用 wttr.in API 查询真实的天气信息"""
@@ -20,22 +19,26 @@ def get_weather(city: str) -> str:
         return f"错误:解析天气数据失败，可能是城市名称无效 - {e}"
 
 def get_attraction(city: str, weather: str) -> str:
-    """根据城市和天气，使用Tavily Search API搜索并返回优化后的景点推荐"""
-    api_key = os.environ.get("TAVILY_API_KEY")
-    if not api_key:
-        return "错误:未配置TAVILY_API_KEY环境变量。"
-    tavily = TavilyClient(api_key=api_key)
-    query = f"'{city}' 在'{weather}'天气下最值得去的旅游景点推荐及理由"
+    """根据城市和天气，使用 SearXNG 搜索并返回景点推荐"""
+    query = f"{city} {weather}天气 旅游景点推荐"
     try:
-        response = tavily.search(query=query, search_depth="basicdis", include_answer=True)
-        if response.get("answer"):
-            return response["answer"]
-        formatted_results = [f"- {result['title']}: {result['content']}" for result in response.get("results", [])]
-        if not formatted_results:
+        params = {
+            "q": query,
+            "format": "json"
+        }
+        response = requests.get(f"{SEARXNG_URL}search", params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        results = data.get("results", [])
+        if not results:
             return "抱歉，没有找到相关的旅游景点推荐。"
+        formatted_results = [f"- {result.get('title', '未知')}: {result.get('content', result.get('url', ''))}" 
+                            for result in results[:3]]
         return "根据搜索，为您找到以下信息:\n" + "\n".join(formatted_results)
+    except requests.exceptions.RequestException as e:
+        return f"错误:SearXNG 搜索时遇到网络问题 - {e}"
     except Exception as e:
-        return f"错误:执行Tavily搜索时出现问题 - {e}"
+        return f"错误:执行搜索时出现问题 - {e}"
 
 available_tools = {
     "get_weather": get_weather,

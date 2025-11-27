@@ -1,6 +1,6 @@
 """智能体核心模块 - 包含 Thought-Action-Observation 循环逻辑"""
 import re
-from typing import List, Tuple, Optional
+from typing import Tuple, Optional
 from tools import available_tools
 from config import AGENT_SYSTEM_PROMPT, DEFAULT_MAX_ITERATIONS
 
@@ -9,15 +9,15 @@ class TravelAgent:
     def __init__(self, llm_client, max_iterations: int = DEFAULT_MAX_ITERATIONS):
         self.llm_client = llm_client
         self.max_iterations = max_iterations
-        self.prompt_history: List[str] = []
+        self.prompt_history: list[str] = []
     
     def _truncate_output(self, llm_output: str) -> str:
-        """截断 LLM 输出中多余的 Thought-Action 对"""
+        """检查并截断 LLM 输出中多余的 Thought-Action 对（备用保护）"""
         match = re.search(r'(Thought:.*?Action:.*?)(?=\n\s*(?:Thought:|Action:|Observation:)|\Z)', llm_output, re.DOTALL)
         if match:
             truncated = match.group(1).strip()
             if truncated != llm_output.strip():
-                print("已截断多余的 Thought-Action 对")
+                print("警告: 检测到多个 Thought-Action 对，已自动截断")
                 return truncated
         return llm_output
     
@@ -59,7 +59,8 @@ class TravelAgent:
         for i in range(self.max_iterations):
             print(f"\n--- 循环 {i+1} ---\n")
             full_prompt = "\n".join(self.prompt_history)
-            llm_output = self.llm_client.generate(full_prompt, AGENT_SYSTEM_PROMPT)
+            llm_output, usage = self.llm_client.generate(full_prompt, AGENT_SYSTEM_PROMPT)
+            print(f"Token 消费: 输入 {usage['input_tokens']}, 输出 {usage['output_tokens']}, 总计 {usage['total_tokens']}")
             llm_output = self._truncate_output(llm_output)
             print(f"模型输出:\n{llm_output}\n")
             self.prompt_history.append(llm_output)
