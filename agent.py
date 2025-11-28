@@ -1,6 +1,5 @@
 """智能体核心模块 - 包含 Thought-Action-Observation 循环逻辑"""
 import re
-from typing import Tuple, Optional
 from tools import available_tools
 from config import AGENT_SYSTEM_PROMPT, DEFAULT_MAX_ITERATIONS
 
@@ -21,7 +20,7 @@ class TravelAgent:
                 return truncated
         return llm_output
     
-    def _parse_action(self, llm_output: str) -> Tuple[Optional[str], Optional[dict]]:
+    def _parse_action(self, llm_output: str) -> tuple[str | None, dict | None]:
         """解析 LLM 输出中的 Action，返回 (action_type, action_data)"""
         action_match = re.search(r"Action: (.*)", llm_output, re.DOTALL)
         if not action_match:
@@ -52,7 +51,7 @@ class TravelAgent:
         print(f"正在调用工具: {tool_name}({', '.join([f'{k}={v}' for k, v in kwargs.items()])})")
         return available_tools[tool_name](**kwargs)
     
-    def run(self, user_prompt: str) -> Optional[str]:
+    def run(self, user_prompt: str) -> str | None:
         """运行智能体的主循环"""
         self.prompt_history = [f"用户请求: {user_prompt}"]
         print(f"用户输入: {user_prompt}\n" + "="*40)
@@ -65,16 +64,17 @@ class TravelAgent:
             print(f"模型输出:\n{llm_output}\n")
             self.prompt_history.append(llm_output)
             action_type, action_data = self._parse_action(llm_output)
-            if action_type is None:
-                print("解析错误:模型输出中未找到有效的 Action。")
-                break
-            if action_type == "finish":
-                print(f"\n任务完成，最终答案: {action_data}")
-                return action_data
-            elif action_type == "tool_call":
-                observation = self._execute_tool(action_data["tool_name"], action_data["kwargs"])
-                observation_str = f"Observation: {observation}"
-                print(f"{observation_str}\n" + "="*40)
-                self.prompt_history.append(observation_str)
+            match action_type:
+                case None:
+                    print("解析错误:模型输出中未找到有效的 Action。")
+                    break
+                case "finish":
+                    print(f"\n任务完成，最终答案: {action_data}")
+                    return action_data
+                case "tool_call":
+                    observation = self._execute_tool(action_data["tool_name"], action_data["kwargs"])
+                    observation_str = f"Observation: {observation}"
+                    print(f"{observation_str}\n" + "="*40)
+                    self.prompt_history.append(observation_str)
         print(f"\n达到最大循环次数 ({self.max_iterations})，程序结束。")
         return None

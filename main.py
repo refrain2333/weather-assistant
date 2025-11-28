@@ -26,7 +26,7 @@ def main():
             base_url=OPENAI_BASE_URL
         )
         agent = TravelAgent(llm_client)
-        user_prompt = "你好，请帮我查询一下今天北京的天气，然后根据天气推荐一个合适的旅游景点。"
+        user_prompt = "你好，请帮我查询一下今天上海的天气，然后根据天气推荐一个合适的旅游景点。"
         agent.run(user_prompt)
     except ValueError as e:
         print(f"配置错误: {e}")
